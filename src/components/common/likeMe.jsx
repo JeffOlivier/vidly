@@ -1,19 +1,17 @@
 import React from "react";
 
 const LikeMe = (props) => {
-    let classes = "fa fa-heart";
+    let classes = "clickable fa fa-heart";
     if (!props.doesLike) classes += "-o";
-
     return (
         <i
             className={classes}
             aria-hidden="true"
             onClick={() =>
-                props.toggleLike({
+                props.onToggleLike({
                     id: props.movieId,
                 })
             }
-            style={{ cursor: "pointer" }}
         ></i>
     );
 };

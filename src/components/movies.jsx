@@ -1,105 +1,124 @@
 import React, { Component } from "react";
 import { getMovies } from "../services/fakeMovieService";
-import LikeMe from "./common/likeMe";
+import { getGenres } from "../services/fakeGenreService";
+import Pagination from "./common/pagination";
+import { paginate } from "../utils/paginate";
+import ListGroup from "./common/listGroup";
+import MoviesTable from "./moviesTable";
+import _ from "lodash";
 
 class Movies extends Component {
     state = {
-        movies: getMovies(),
+        movies: [],
+        genres: [],
         //TODO: Add dynamic adding of doesLike attribute to each movie
+        pageSize: 4,
+        currentPage: 1,
+        sortColumn: { path: "title", order: "asc" },
     };
 
-    constructor() {
-        super();
-        // this.handleIncrement = this.handleIncrement.bind(this);
-        this.handleDelete = this.handleDelete.bind(this);
-        this.handleLikeToggle = this.handleLikeToggle.bind(this);
+    // constructor() {
+    //     super();
+    //     this.handleDelete = this.handleDelete.bind(this);
+    //     this.handleLikeToggle = this.handleLikeToggle.bind(this);
+    //     this.handlePageChange = this.handlePageChange.bind(this);
+    // }
+
+    componentDidMount() {
+        const defaultAllGenres = { _id: "", name: "All Genres" };
+        const genres = [defaultAllGenres, ...getGenres()];
+        this.setState({ movies: getMovies(), genres });
+        this.setState({ currentGenre: defaultAllGenres });
     }
 
     handleLikeToggle = (movie) => {
+        console.log("Llike toggled");
         let newMovieList = [...this.state.movies];
-        // console.log("newMovieList", newMovieList);
         const index = newMovieList.map((e) => e._id).indexOf(movie.id); // const index = Data.map(function (e) { return e.name; }).indexOf("Nick");
         newMovieList[index] = { ...newMovieList[index] };
         newMovieList[index].doesLike = !newMovieList[index].doesLike;
         this.setState({ movies: newMovieList });
     };
 
-    handleDelete = (movie) => {
-        console.log("Delete Clicked (id# " + movie.id + ")");
+    handlePageChange = (page) => {
+        this.setState({ currentPage: page });
+    };
 
-        // let newMovieList = { ...this.state.movies };
+    handleGenreSelect = (genre) => {
+        this.setState({ currentGenre: genre });
+        this.setState({ currentPage: 1 });
+    };
+
+    handleSort = (sortColumn) => {
+        this.setState({ sortColumn });
+    };
+
+    handleDelete = (movie) => {
         const newMovieList = this.state.movies.filter(
             (m) => m._id !== movie.id
         );
-
-        this.setState({ newMovieList });
+        this.setState({ movies: newMovieList });
     };
 
-    // renderMovieList() {
-    //     if (this.state.tags.length === 0) return <p>There are no tags!</p>;
+    getPagedData = () => {
+        const {
+            pageSize,
+            currentPage,
+            currentGenre,
+            movies: allMovies,
+            sortColumn,
+        } = this.state;
 
-    //     return <ul>{this.state.tags.map(tag => <li key={tag}>{tag}</li>)}</ul>;
-    // }
+        const filteredMovies =
+            currentGenre && currentGenre._id
+                ? allMovies.filter((m) => m.genre._id === currentGenre._id)
+                : allMovies;
+
+        const sortedMovies = _.orderBy(
+            filteredMovies,
+            [sortColumn.path, "title"],
+            [sortColumn.order, "asc"]
+        );
+
+        const someMovies = paginate(sortedMovies, currentPage, pageSize);
+
+        return { totalCount: filteredMovies.length, data: someMovies };
+    };
 
     render() {
         const { length: movieCount } = this.state.movies; // Object destructuring ---> gets the length property of movies
+        const { pageSize, currentPage, sortColumn } = this.state;
 
         if (movieCount === 0) return <p>There are no movies in the database</p>;
 
+        const { totalCount, data: movies } = this.getPagedData();
         return (
-            <React.Fragment>
-                <p>Showing {movieCount} movies in the database</p>
-                <table className="table">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Genre</th>
-                            <th>Stock</th>
-                            <th>Rate</th>
-                            <th />
-                            <th />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {this.state.movies.map((movie) => (
-                            <tr key={movie._id}>
-                                <td>{movie.title}</td>
-                                <td>{movie.genre.name}</td>
-                                <td>{movie.numberInStock}</td>
-                                <td>${movie.dailyRentalRate.toFixed(2)}</td>
-                                <td>
-                                    <LikeMe
-                                        // toggleLike={() =>
-                                        //     this.handleLike(movie)
-                                        // }
-                                        toggleLike={this.handleLikeToggle}
-                                        movieId={movie._id}
-                                        doesLike={movie.doesLike}
-                                    />
-                                </td>
-                                <td>
-                                    <button
-                                        className="btn btn-danger btn-sm"
-                                        onClick={() =>
-                                            this.handleDelete({ id: movie._id })
-                                        }
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </React.Fragment>
+            <div className="row">
+                <div className="col-3">
+                    <ListGroup
+                        items={this.state.genres}
+                        selectedItem={this.state.currentGenre}
+                        onItemSelect={this.handleGenreSelect}
+                    />
+                </div>
+                <div className="col">
+                    <p>Showing {totalCount} movies in the database</p>
+                    <MoviesTable
+                        movies={movies}
+                        sortColumn={sortColumn}
+                        onToggleLike={this.handleLikeToggle}
+                        onDelete={this.handleDelete}
+                        onSort={this.handleSort}
+                    />
+                    <Pagination
+                        totalItems={totalCount}
+                        pageSize={pageSize}
+                        currentPage={currentPage}
+                        onPageChange={this.handlePageChange}
+                    />
+                </div>
+            </div>
         );
-
-        // _id: "5b21ca3eeb7f6fbccd471815",
-        // title: "Terminator",
-        // genre: { _id: "5b21ca3eeb7f6fbccd471818", name: "Action" },
-        // numberInStock: 6,
-        // dailyRentalRate: 2.5,
-        // publishDate: "2018-01-03T19:04:28.809Z"
     }
 }
 

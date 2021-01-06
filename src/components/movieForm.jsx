@@ -1,21 +1,82 @@
-import React, { Component } from "react";
+import React from "react";
+import Joi from "joi-browser";
+import Form from "./common/form";
+import { getGenres } from "../services/fakeGenreService";
+import { getMovie, saveMovie } from "../services/fakeMovieService";
 
-class MovieDetails extends Component {
-    handleSave = () => {
-        this.props.history.replace("/movies");
+class MovieForm extends Form {
+    state = {
+        data: {
+            _id: "",
+            title: "",
+            genreId: "",
+            numberInStock: "",
+            dailyRentalRate: "",
+        },
+        genres: [],
+        errors: {},
+    };
+
+    schema = {
+        _id: Joi.string().allow(""),
+        title: Joi.string().required().label("Title"),
+        genreId: Joi.string().required().label("Genre"),
+        numberInStock: Joi.number()
+            .min(0)
+            .max(100)
+            .required()
+            .label("Number in Stock"),
+        dailyRentalRate: Joi.number()
+            .min(0)
+            .max(10)
+            .required()
+            .label("Daily Rental Rate"),
+    };
+
+    componentDidMount() {
+        const genres = getGenres();
+        this.setState({ genres: genres });
+
+        // Check to see if we are creating a new movie or retrieving one from the server
+        const movieId = this.props.match.params.id;
+        if (movieId === "new" || movieId === "new/" || movieId === undefined)
+            return;
+
+        const movie = getMovie(movieId);
+        if (!movie) return this.props.history.replace("/404"); // doesn't let the browser's back button work
+
+        this.setState({ data: this.mapToViewModel(movie) });
+    }
+
+    mapToViewModel(movie) {
+        return {
+            _id: movie._id,
+            title: movie.title,
+            genreId: movie.genre._id,
+            numberInStock: movie.numberInStock,
+            dailyRentalRate: movie.dailyRentalRate,
+        };
+    }
+
+    handleSubmit = () => {
+        saveMovie(this.state.data); // Save the new movie object
+        this.props.history.push("/movies"); // Redirect the user to the movie listing page
     };
 
     render() {
         return (
             <div>
-                <h1>Movie Form {this.props.match.params.id}</h1>
-                <button onClick={this.handleSave}>Save</button>
-                {/* <button onClick={() => this.props.history.push("/movies")}>
-                    Save 2
-                </button> */}
+                <h1>Movie Form</h1>
+                <form onSubmit={this.handleSubmit}>
+                    {this.renderInput("title", "Title")}
+                    {this.renderSelect("genreId", "Genre", this.state.genres)}
+                    {this.renderInput("numberInStock", "Number in Stock")}
+                    {this.renderInput("dailyRentalRate", "Daily Rental Rate")}
+                    {this.renderButton("Save")}
+                </form>
             </div>
         );
     }
 }
 
-export default MovieDetails;
+export default MovieForm;

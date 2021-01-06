@@ -1,10 +1,11 @@
 import React, { Component } from "react";
-import { getMovies } from "../services/fakeMovieService";
+import { getMovies, deleteMovie } from "../services/fakeMovieService";
 import { getGenres } from "../services/fakeGenreService";
 import Pagination from "./common/pagination";
 import { paginate } from "../utils/paginate";
 import ListGroup from "./common/listGroup";
 import MoviesTable from "./moviesTable";
+import SearchBox from "./common/searchBox";
 import _ from "lodash";
 
 class Movies extends Component {
@@ -12,8 +13,10 @@ class Movies extends Component {
         movies: [],
         genres: [],
         //TODO: Add dynamic adding of doesLike attribute to each movie
-        pageSize: 4,
         currentPage: 1,
+        pageSize: 4,
+        searchQuery: "",
+        selectedGenre: null,
         sortColumn: { path: "title", order: "asc" },
     };
 
@@ -45,8 +48,11 @@ class Movies extends Component {
     };
 
     handleGenreSelect = (genre) => {
-        this.setState({ currentGenre: genre });
-        this.setState({ currentPage: 1 });
+        this.setState({
+            selectedGenre: genre,
+            currentPage: 1,
+            searchQuery: "",
+        });
     };
 
     handleSort = (sortColumn) => {
@@ -58,21 +64,41 @@ class Movies extends Component {
             (m) => m._id !== movie.id
         );
         this.setState({ movies: newMovieList });
+
+        deleteMovie(movie._id);
+    };
+
+    handleNewMovie = () => {
+        this.props.history.push(`/movies/new/`);
+    };
+
+    handleSearch = (query) => {
+        this.setState({
+            searchQuery: query,
+            selectedGenre: null,
+            currentPage: 1,
+        });
     };
 
     getPagedData = () => {
         const {
             pageSize,
             currentPage,
-            currentGenre,
-            movies: allMovies,
             sortColumn,
+            selectedGenre,
+            searchQuery,
+            movies: allMovies,
         } = this.state;
 
-        const filteredMovies =
-            currentGenre && currentGenre._id
-                ? allMovies.filter((m) => m.genre._id === currentGenre._id)
-                : allMovies;
+        let filteredMovies = allMovies;
+        if (searchQuery)
+            filteredMovies = allMovies.filter((m) =>
+                m.title.toLowerCase().startsWith(searchQuery.toLowerCase())
+            );
+        else if (selectedGenre && selectedGenre._id)
+            filteredMovies = allMovies.filter(
+                (m) => m.genre._id === selectedGenre._id
+            );
 
         const sortedMovies = _.orderBy(
             filteredMovies,
@@ -97,12 +123,23 @@ class Movies extends Component {
                 <div className="col-3">
                     <ListGroup
                         items={this.state.genres}
-                        selectedItem={this.state.currentGenre}
+                        selectedItem={this.state.selectedGenre}
                         onItemSelect={this.handleGenreSelect}
                     />
                 </div>
                 <div className="col">
+                    <button
+                        className="btn btn-primary"
+                        onClick={this.handleNewMovie}
+                        style={{ marginBottom: 20 }}
+                    >
+                        Add a New Movie
+                    </button>
                     <p>Showing {totalCount} movies in the database</p>
+                    <SearchBox
+                        value={this.state.searchQuery}
+                        onChange={this.handleSearch}
+                    />
                     <MoviesTable
                         movies={movies}
                         sortColumn={sortColumn}

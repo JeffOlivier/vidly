@@ -1,8 +1,8 @@
 import React from "react";
 import Joi from "joi-browser";
 import Form from "./common/form";
-import { getGenres } from "../services/fakeGenreService";
-import { getMovie, saveMovie } from "../services/fakeMovieService";
+import { getGenres } from "../services/genreService";
+import { getMovie, saveMovie } from "../services/movieService";
 
 class MovieForm extends Form {
     state = {
@@ -33,19 +33,33 @@ class MovieForm extends Form {
             .label("Daily Rental Rate"),
     };
 
-    componentDidMount() {
-        const genres = getGenres();
-        this.setState({ genres: genres });
+    async populateGenres() {
+        // const genres = getGenres();
+        const { data: genres } = await getGenres();
+        this.setState({ genres });
+    }
 
-        // Check to see if we are creating a new movie or retrieving one from the server
-        const movieId = this.props.match.params.id;
-        if (movieId === "new" || movieId === "new/" || movieId === undefined)
-            return;
+    async populateMovie() {
+        try {
+            // Check to see if we are creating a new movie or retrieving one from the server
+            const movieId = this.props.match.params.id;
+            if (movieId === "new" || movieId === "new/" || movieId === undefined)
+                return;
+            
+            // const movie = getMovie(movieId);
+            const { data: movie } = await getMovie(movieId);
+            this.setState({ data: this.mapToViewModel(movie) });
+        } catch (ex) {
+            if (ex.response && ex.response.status === 404) {
+                // redirect the suer and don't let the browser's back button work
+                this.props.history.replace("/404"); 
+            }
+        } 
+    }
 
-        const movie = getMovie(movieId);
-        if (!movie) return this.props.history.replace("/404"); // doesn't let the browser's back button work
-
-        this.setState({ data: this.mapToViewModel(movie) });
+    async componentDidMount() {
+        await this.populateGenres();
+        await this.populateMovie();
     }
 
     mapToViewModel(movie) {
@@ -58,8 +72,8 @@ class MovieForm extends Form {
         };
     }
 
-    handleSubmit = () => {
-        saveMovie(this.state.data); // Save the new movie object
+    doSubmit = async () => {
+        await saveMovie(this.state.data); // Save the new movie object
         this.props.history.push("/movies"); // Redirect the user to the movie listing page
     };
 
